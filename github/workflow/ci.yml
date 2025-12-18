@@ -3,39 +3,52 @@ name: CI - Train and Save the model
 on:
   push:
     branches: [ main ]
-  pull_requests:
+  pull_request:
     branches: [ main ]
 
-jobs: 
-  matrix-pip:
-    name: Train and Save the model
+jobs:
+  train-and-save:
+    name: Train and Save the model (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python: [3.11, 3.12]
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
       - name: upgrade pip
         run: python -m pip install --upgrade pip setuptools wheel
 
       - name: Install project Dependencies
         run: python -m pip install -r requirements.txt
-      
+
+      - name: Lint (flake8)
+        run: |
+          python -m pip install flake8
+          flake8 --max-line-length=120
+
       - name: Train the model
         run: |
-            python train.py
-            ls -la artifacts
+          python train.py
+          ls -la artifacts
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        with:   
-          name: ml-artifacts-${{ matrix.python }}-${{ guthub.run_id}}
+        with:
+          name: ml-artifacts-${{ matrix.python }}-${{ github.run_id }}
           path: artifacts
